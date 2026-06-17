@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analysis Results</title>
+  <link rel="stylesheet" href="results.css">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <h1>FILE ANALYZER</h1>
+    <p class="pointers">Extract metadata &nbsp; &nbsp; -  &nbsp; &nbsp; Generate hashes &nbsp; &nbsp; -  &nbsp; &nbsp; Detect risk indicators</p>
+
+  <div id="loading">Analyzing file...</div>
+
+  <div class="results" id="results">
+
+    <!-- Only visible when printing -->
+    <div class="print-header" style="display:none;">
+      <div class="print-header-title">File Analysis Report</div>
+      <div class="print-header-meta">
+        <div id="print-date"></div>
+      </div>
+    </div>
+
+    <div class="buttons">
+        <a href="index.html" class="back-btn">< Back</a>
+        <button class="export-btn" onclick="exportCSV()">Export as CSV</button>
+    </div>
+
+      <div class="card">
+    <div class="card_title">File Information</div>
+    <div class="info">
+      <span class="info_l">File name</span>
+      <span class="info_v" id="filename_s"></span>
+    </div>
+    <div class="info">
+      <span class="info_l">File size</span>
+      <span class="info_v" id="size_s"></span>
+    </div>
+    <div class="info">
+      <span class="info_l">File type</span>
+      <span class="info_v" id="type_s"></span>
+    </div>
+  </div>
+
+    <div class="card">
+      <div class="card_title">Cryptographic Hashes</div>
+      <div class="info">
+        <span class="info_l">MD5</span>
+        <span class="info_v" id="md5_s"></span>
+      </div>
+      <div class="info">
+        <span class="info_l">SHA1</span>
+        <span class="info_v" id="sha1_s"></span>
+      </div>
+      <div class="info">
+        <span class="info_l">SHA256</span>
+        <span class="info_v" id="sha256_s"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card_title">Risk Assessment</div>
+      <div class="info">
+        <span class="info_l">Risk level</span>
+        <span class="info_v" id="risklevel_s"></span>
+      </div>
+      <div class="info">
+        <span class="info_l">Score</span>
+        <span class="info_v" id="riskscore_s"></span>
+      </div>
+      <div id="r-indicators" style="margin-top: 12px;"></div>
+    </div>
+
+  </div>
+
+  <script>
+    let lastAnalysis = null;
+
+    function dataURLtoFile(dataUrl, filename) {
+      const arr = dataUrl.split(',');
+      const mimeMatch = arr[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : '';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename, { type: mime });
+    }
+
+    async function analyzeFromHandoff() {
+      const filename = sessionStorage.getItem('pendingFileName');
+      const fileData = sessionStorage.getItem('pendingFileData');
+
+      if (!filename || !fileData) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      const file = dataURLtoFile(fileData, filename);
+
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('results').style.display = 'none';
+
+      const form = new FormData();
+      form.append('file', file);
+
+      const res = await fetch('http://localhost:8000/analyze', {
+        method: 'POST',
+        body: form
+      });
+
+      const data = await res.json();
+      lastAnalysis = data;
+
+      document.getElementById('filename_s').textContent = data.filename;
+      document.getElementById('size_s').textContent = data.size_kb + ' KB';
+      document.getElementById('type_s').textContent = data.file_type;
+
+      document.getElementById('md5_s').textContent = data.hashes.md5;
+      document.getElementById('sha1_s').textContent = data.hashes.sha1;
+      document.getElementById('sha256_s').textContent = data.hashes.sha256;
+
+      const level = data.risk.level;
+      document.getElementById('risklevel_s').innerHTML =
+        `<span class="risk_badge risk-${level}">${level}</span>`;
+      document.getElementById('riskscore_s').textContent = data.risk.score + ' / 100';
+
+      const indicatorsDiv = document.getElementById('r-indicators');
+      if (data.risk.indicators.length === 0) {
+        indicatorsDiv.innerHTML = '<div class="no-risks">No suspicious indicators detected</div>';
+      } else {
+        indicatorsDiv.innerHTML = data.risk.indicators
+          .map(i => `<span class="indicator_pill">${i}</span>`)
+          .join('');
+      }
+
+      // Clear the handoff data so refreshing doesn't re-analyze forever
+      sessionStorage.removeItem('pendingFileName');
+      sessionStorage.removeItem('pendingFileData');
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('results').style.display = 'block';
+    }
+
+    function exportCSV() {
+      if (!lastAnalysis) return;
+
+      const rows = [
+        ['Field', 'Value'],
+        ['Filename', lastAnalysis.filename],
+        ['Size (KB)', lastAnalysis.size_kb],
+        ['File type', lastAnalysis.file_type],
+        ['MD5', lastAnalysis.hashes.md5],
+        ['SHA1', lastAnalysis.hashes.sha1],
+        ['SHA256', lastAnalysis.hashes.sha256],
+        ['Risk level', lastAnalysis.risk.level],
+        ['Risk score', lastAnalysis.risk.score],
+        ['Indicators', lastAnalysis.risk.indicators.length ? lastAnalysis.risk.indicators.join('; ') : 'None']
+      ];
+
+      const csvContent = rows.map(r => r.map(escapeCSV).join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${lastAnalysis.filename}_analysis.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function escapeCSV(value) {
+      const str = String(value ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    }
+
+    // Run as soon as the page loads
+    analyzeFromHandoff();
+  </script>
+
+</body>
+</html>

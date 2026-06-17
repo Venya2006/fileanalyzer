@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Analyzer</title>
+  <link rel="stylesheet" href="index.css">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <h1>FILE ANALYZER</h1>
+    <p class="pointers">Extract metadata &nbsp; &nbsp; -  &nbsp; &nbsp; Generate hashes &nbsp; &nbsp; -  &nbsp; &nbsp; Detect risk indicators</p>
+
+  <div class="upload_area">
+    <p class="line1">Curious what's inside your file?</p>
+    <p class="line2">Upload any file and instantly receive a forensic analysis report.</p>
+    <label class="file_label" for="fileInput">Choose file</label>
+    <input type="file" id="fileInput" onchange="onFileChosen()">
+    <div id="filename-display"></div>
+    <button id="analyzeBtn" onclick="goToResults()" disabled>Analyze</button>
+  </div>
+
+  <script>
+    function onFileChosen() {
+      const file = document.getElementById('fileInput').files[0];
+      if (file) {
+        document.getElementById('filename-display').textContent = file.name;
+        document.getElementById('analyzeBtn').disabled = false;
+      }
+    }
+
+    function goToResults() {
+      const file = document.getElementById('fileInput').files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function () {
+        sessionStorage.setItem('pendingFileName', file.name);
+        sessionStorage.setItem('pendingFileData', reader.result);
+        window.location.href = 'results.html';
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+
+</body>
+</html>
