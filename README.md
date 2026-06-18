@@ -37,7 +37,16 @@ cd fileanalyzer
 **2. Create a virtual environment**
 ```bash
 python -m venv venv
+```
+
+Mac/Linux:
+```bash
 source venv/bin/activate
+```
+
+Windows:
+```bash
+venv\Scripts\activate
 ```
 
 **3. Install dependencies**
