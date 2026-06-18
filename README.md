@@ -31,8 +31,8 @@ Developed a Python-based digital forensics tool using FastAPI to analyze uploade
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/YOUR_USERNAME/fileanalyser.git
-cd fileanalyser
+git clone https://github.com/YOUR_USERNAME/fileanalyzer.git
+cd fileanalyzer
 ```
 **2. Create a virtual environment**
 ```bash
